@@ -1,0 +1,98 @@
+{
+  "note": "PROVISIONAL playtest values approved for implementation; not tables from the supplied rulebook. Generic infantry is core heavy foot for Gulf and core spear for Alliance. All ordinary terrain is open until a terrain table is supplied.",
+  "infantry": {
+    "price": 4,
+    "foot": 3,
+    "mounted": 5,
+    "move": 2,
+    "range": 0,
+    "shoot": 0
+  },
+  "artillery": {
+    "price": 10,
+    "foot": 1,
+    "mounted": 1,
+    "move": 1,
+    "range": 5,
+    "shoot": 4
+  },
+  "cavalry": {
+    "price": 8,
+    "foot": 3,
+    "mounted": 3,
+    "move": 3,
+    "range": 0,
+    "shoot": 0
+  },
+  "starting_forces": {
+    "gulf": {
+      "province": "G2",
+      "infantry": 7,
+      "ships": 2
+    },
+    "alliance": {
+      "province": "A2",
+      "infantry": 8,
+      "ships": 0
+    }
+  },
+  "ship": {
+    "price": 10
+  },
+  "bow": {
+    "price": 4,
+    "foot": 2,
+    "mounted": 2,
+    "move": 2,
+    "range": 3,
+    "shoot": 2
+  },
+  "skirmisher": {
+    "price": 3,
+    "foot": 2,
+    "mounted": 2,
+    "move": 3,
+    "range": 2,
+    "shoot": 2
+  },
+  "slinger": {
+    "price": 4,
+    "foot": 2,
+    "mounted": 3,
+    "move": 2,
+    "range": 3,
+    "shoot": 3
+  },
+  "jaguar": {
+    "price": 7,
+    "foot": 4,
+    "mounted": 3,
+    "move": 2,
+    "range": 0,
+    "shoot": 0
+  },
+  "eagle": {
+    "price": 7,
+    "foot": 3,
+    "mounted": 3,
+    "move": 3,
+    "range": 0,
+    "shoot": 0
+  },
+  "crossbow": {
+    "price": 6,
+    "foot": 3,
+    "mounted": 3,
+    "move": 2,
+    "range": 3,
+    "shoot": 3
+  },
+  "shot": {
+    "price": 7,
+    "foot": 2,
+    "mounted": 2,
+    "move": 2,
+    "range": 4,
+    "shoot": 4
+  }
+}
