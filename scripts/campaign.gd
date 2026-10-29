@@ -21,6 +21,7 @@ var phase := 0
 var active := 0
 var passed := [false, false]
 var finished := false
+var ai_players: Array = [false,true]
 var history: Array[String] = []
 
 func _init() -> void:
@@ -410,6 +411,8 @@ func advance() -> void:
 			if p.cubes[0] + p.cubes[1] < effective_population(id): p.cubes[army.owner] += 1
 	if phase == 4: Logistics.deploy(self)
 	if phase == 5:
+		for player in range(factions.size()):
+			if ai_players[player]: CampaignAI.income_choices(self,player)
 		CampaignRules.complete_projects(self)
 		progress_plague()
 		CampaignRules.revolt(self)
@@ -609,7 +612,7 @@ func relocate(origin: String, target: String) -> String:
 
 func save_campaign(path := "user://campaign.save") -> String:
 	if battle != null: return "Finish the tactical battle before saving."
-	var data := {"version":1,"provinces":provinces.duplicate(true),"factions":factions,"armies":armies,"fleets":fleets,"orders":orders,"roads":roads,"round":round_number,"phase":phase,"active":active,"passed":passed,"finished":finished,"history":history,"rng":random.state,"truce":truce_until,"offer":treaty_offer}
+	var data := {"version":1,"ai_players":ai_players,"provinces":provinces.duplicate(true),"factions":factions,"armies":armies,"fleets":fleets,"orders":orders,"roads":roads,"round":round_number,"phase":phase,"active":active,"passed":passed,"finished":finished,"history":history,"rng":random.state,"truce":truce_until,"offer":treaty_offer}
 	for p in data.provinces.values():
 		for order in p.projects:
 			var indices: Array = []
@@ -635,6 +638,8 @@ func load_campaign(path := "user://campaign.save") -> String:
 	if not data.provinces is Dictionary or data.provinces.keys().size() != provinces.size() or not data.factions is Array or data.factions.size() != 2: return "Invalid scenario data."
 	if not data.armies is Array or not data.fleets is Array or not data.orders is Array or not data.history is Array: return "Invalid collections."
 	if data.phase not in range(6) or data.active not in range(2) or data.round not in range(1,7): return "Invalid turn state."
+	var saved_ai = data.get("ai_players",[false,false])
+	if not saved_ai is Array or saved_ai.size() != 2 or not saved_ai.all(func(v): return v is bool): return "Invalid AI settings."
 	var baseline := Campaign.new()
 	for id in baseline.provinces:
 		if not data.provinces.has(id) or not data.provinces[id] is Dictionary: return "Invalid provinces."
@@ -666,6 +671,7 @@ func load_campaign(path := "user://campaign.save") -> String:
 				if index not in range(data.armies.size()): return "Missing project army."
 				refs.append(data.armies[index])
 			order.army = refs
+	ai_players = saved_ai.duplicate()
 	provinces = data.provinces
 	factions = data.factions
 	armies = data.armies

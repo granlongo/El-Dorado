@@ -13,6 +13,7 @@ func _init() -> void:
 func run() -> void:
 	var packed := load("res://scenes/main.tscn") as PackedScene
 	var ui = packed.instantiate()
+	ui.game.ai_players = [false,false]
 	root.add_child(ui)
 	await process_frame
 	check(ui.nodes.size() == 8,"map buttons")

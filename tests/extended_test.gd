@@ -6,7 +6,7 @@ func check(ok: bool, label: String) -> void:
 	if not ok: failures += 1; printerr("FAIL: "+label)
 func _init() -> void: call_deferred("run")
 func run() -> void:
-	var g := Campaign.new()
+	var g := human_game()
 	g.phase = 1
 	check(CampaignRules.project(g,"G2","city").contains("Queued"),"city queued")
 	check(CampaignRules.project(g,"G2","port").contains("One project"),"one project slot")
@@ -18,12 +18,12 @@ func run() -> void:
 	g.provinces.G2.owner = -1
 	CampaignRules.complete_projects(g)
 	check(not g.provinces.G2.port,"lost destination cancels project")
-	g = Campaign.new()
+	g = human_game()
 	g.phase = 1
 	check(g.buy("G1","ship").contains("queued"),"ship purchase")
 	Logistics.deploy(g)
 	check(g.fleets[0].ships == 3 and Logistics.committed(g,0) == 10,"ship deploys to fleet and counts manpower")
-	g = Campaign.new()
+	g = human_game()
 	g.phase = 3
 	g.armies[0].province = "G1"
 	check(NavalRules.transport(g,"G1","G2").contains("Insufficient"),"seven units exceed two ships")
@@ -31,7 +31,7 @@ func run() -> void:
 	check(NavalRules.transport(g,"G1","G2").contains("moved"),"transport to mainland")
 	check(g.fleets[0].spent and g.armies[1].owner == 1,"transport uses fleet activation without changing enemy army")
 	check(g.armies.any(func(a): return a.owner == 0 and a.province == "G2" and a.spent),"landing army is spent")
-	g = Campaign.new()
+	g = human_game()
 	g.phase = 2
 	g.factions[0].devotion = 1
 	check(g.policy("devotion","G1").contains("two") and g.factions[0].ap == 6,"devotion grants two actions")
@@ -44,13 +44,13 @@ func run() -> void:
 	check(g.move_army("A2","G2").contains("exceeds") or g.truce_until == 2,"truce duration")
 	g.phase = 2
 	check(g.policy("break","A1").contains("broken") and g.factions[1].stability == 0,"breaking truce loses stability")
-	g = Campaign.new()
+	g = human_game()
 	g.phase = 5
 	g.active = 1
 	g.armies[1].province = "A1"
 	check(g.policy("offer","A1").contains("Offering") and g.armies[1].units.size() == 7,"temple offering consumes infantry")
 	check(g.policy("offer","A1").contains("already"),"offering cannot repeat at same temple")
-	g = Campaign.new()
+	g = human_game()
 	g.phase = 3
 	g.armies[0].province = "N1"
 	g.armies[1].units.resize(4)
@@ -71,7 +71,7 @@ func run() -> void:
 	g.battle.withdraw()
 	g.finish_battle()
 	check(not g.provinces.A2.siege and g.provinces.A2.garrison.is_empty() and g.provinces.A2.owner == -1,"successful assault captures city exactly once")
-	g = Campaign.new()
+	g = human_game()
 	g.phase = 2
 	g.factions[0].gold = 33
 	var rng_state: int = g.random.state
@@ -97,7 +97,7 @@ func run() -> void:
 	check(b.deployment_move(0,Vector2i(4,8)).contains("rows"),"deployment zone restriction")
 	b.confirm_deployment(); b.confirm_deployment()
 	check(not b.deployment and b.active == 0,"both players confirm before tactical play")
-	g = Campaign.new()
+	g = human_game()
 	g.phase = 5
 	for id in ["A1","A2","N1","N2"]:
 		g.provinces[id].owner = 0
@@ -108,3 +108,8 @@ func run() -> void:
 	check(g.finished,"sustained six-province control wins")
 	print("Extended mechanics: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)
+
+func human_game() -> Campaign:
+	var g := Campaign.new()
+	g.ai_players = [false,false]
+	return g

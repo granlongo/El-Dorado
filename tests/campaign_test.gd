@@ -10,7 +10,7 @@ func check(value: bool, description: String) -> void:
 		printerr("FAIL: " + description)
 
 func clean_game() -> Campaign:
-	var game := Campaign.new()
+	var game := human_game()
 	game.random.seed = 42
 	game.armies.clear()
 	game.fleets.clear()
@@ -33,7 +33,7 @@ func run() -> void:
 	quit(1 if failures > 0 else 0)
 
 func test_scenario() -> void:
-	var game := Campaign.new()
+	var game := human_game()
 	check(game.provinces.size() == 8,"eight-province scenario")
 	check(game.capacity(0) == 10 and game.capacity(1) == 10,"starting capacity")
 	check(Logistics.committed(game,0) == 9 and Logistics.committed(game,1) == 8,"starting committed manpower including ships")
@@ -48,7 +48,7 @@ func test_scenario() -> void:
 	check(game.factions[0].gold == 40,"upkeep charged once")
 
 func test_supply() -> void:
-	var game := Campaign.new()
+	var game := human_game()
 	check(Logistics.supplied(game,"G2",0),"Gulf army supplied over S1 through functioning port")
 	game.fleets.clear()
 	check(not Logistics.supplied(game,"G2",0),"lost ship chain cuts Gulf supply")
@@ -68,7 +68,7 @@ func test_supply() -> void:
 	check(Logistics.supplied(game,"N1",0),"besieger may trace out of its own province")
 
 func test_maintenance() -> void:
-	var game := Campaign.new()
+	var game := human_game()
 	game.fleets.clear()
 	Logistics.maintenance(game)
 	check(game.factions[0].gold == 46,"seven infantry owe full 14 upkeep before attrition")
@@ -81,7 +81,7 @@ func test_maintenance() -> void:
 	Logistics.maintenance(game)
 	check(game.factions[0].gold == 37,"20 basic upkeep plus ceiling 20/9 surcharge")
 	check(game.armies[0].units.size() == 10,"exceeding manpower never automatically disbands units")
-	game = Campaign.new()
+	game = human_game()
 	game.factions[1].gold = 0
 	Logistics.maintenance(game)
 	check(game.factions[1].arrears == 16 and game.factions[1].stability == 1,"unpaid maintenance becomes arrears and lowers stability")
@@ -96,7 +96,7 @@ func test_maintenance() -> void:
 	check(game.factions[1].arrears == 2 and game.factions[1].gold == 0,"income automatically clears debt before becoming spendable")
 
 func test_recruitment() -> void:
-	var game := Campaign.new()
+	var game := human_game()
 	game.phase = 1
 	check(game.buy("G1","infantry").contains("queued"),"recruitment creates queued order")
 	check(game.factions[0].gold == 56 and Logistics.committed(game,0) == 10,"purchase paid and manpower reserved immediately")
@@ -104,7 +104,7 @@ func test_recruitment() -> void:
 	Logistics.deploy(game)
 	check(game.orders.is_empty() and Logistics.committed(game,0) == 10,"deployment does not double-count reserved manpower")
 	check(game.armies.size() == 3 and game.armies[2].spent,"new destination creates a spent army")
-	game = Campaign.new()
+	game = human_game()
 	game.phase = 1
 	game.buy("G1","infantry")
 	game.provinces.G2.owner = -1
@@ -152,7 +152,7 @@ func test_diplomacy() -> void:
 	check(game.contest("N4").contains("protects"),"institution protects last rival cube")
 
 func test_plague_and_rounds() -> void:
-	var game := Campaign.new()
+	var game := human_game()
 	game.random.seed = 42
 	game.progress_plague()
 	check(game.provinces.G2.plague == 2 and game.effective_population("G2") == 2,"plague advances and permanently reduces population")
@@ -161,7 +161,7 @@ func test_plague_and_rounds() -> void:
 	check(game.provinces.G2.plague == 3,"stage two becomes recovered")
 	game.progress_plague()
 	check(game.provinces.G2.plague == 3,"recovered province never advances or reinfects")
-	game = Campaign.new()
+	game = human_game()
 	var limit := 0
 	while not game.finished and limit < 100:
 		game.advance()
@@ -170,7 +170,7 @@ func test_plague_and_rounds() -> void:
 	check(limit == 54,"six complete rounds include both players passing shared phases")
 
 func test_tactical() -> void:
-	var game := Campaign.new()
+	var game := human_game()
 	var battle := TacticalBattle.new(["infantry","infantry","infantry"],["infantry","infantry","infantry"],game.profiles,123)
 	check(battle.units.size() == 6 and battle.command >= 1,"battle deploys every unit and rolls CP")
 	check(battle.units[0].cell.y == 2 and battle.units[3].cell.y == 9,"deployment uses opposing front rows")
@@ -205,7 +205,7 @@ func test_tactical() -> void:
 	check(battle.finished and battle.winner == 1,"12 full battle rounds force attacker withdrawal")
 
 func test_battle_integration() -> void:
-	var game := Campaign.new()
+	var game := human_game()
 	game.phase = 3
 	check(game.move_army("G2","N1").contains("Battle"),"independent province raises militia and opens tactical battle")
 	check(game.battle.units.size() == 10,"seven attackers face three militia")
@@ -216,7 +216,7 @@ func test_battle_integration() -> void:
 	check(game.provinces.N1.owner == -1 and game.provinces.N1.cubes[0] == 1,"conquest grants influence but no political ownership")
 	check(game.factions[0].pool == 6 and game.factions[0].cp == 3,"Spanish battle reward and one activation cost")
 	check(game.active == 1 and game.armies[0].spent,"military action alternates and attacker remains spent")
-	game = Campaign.new()
+	game = human_game()
 	game.phase = 3
 	game.move_army("G2","N1")
 	game.battle.withdraw()
@@ -228,3 +228,8 @@ func test_battle_integration() -> void:
 	game.move_army("N1","A2")
 	check(game.battle == null and game.provinces.A2.owner == -1,"undefended enemy province is conquered without a fabricated battle")
 	check(game.factions[0].pool == 4,"empty province grants no battle reward")
+
+func human_game() -> Campaign:
+	var g := Campaign.new()
+	g.ai_players = [false,false]
+	return g

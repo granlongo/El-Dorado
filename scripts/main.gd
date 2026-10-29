@@ -22,6 +22,12 @@ var battle_status: Label
 var battle_log: RichTextLabel
 var selected_unit := -1
 var phase_button: Button
+var ai_mode: OptionButton
+var ai_paused := false
+var ai_elapsed := 0.0
+var ai_pause_buttons: Array[CheckButton] = []
+var tactical_buttons: Array[Button] = []
+var extra_button: Button
 
 func _ready() -> void:
 	var margin := MarginContainer.new()
@@ -40,6 +46,13 @@ func _ready() -> void:
 	subtitle.text = "EL DORADO  /  TWO-PLAYER CAMPAIGN PROTOTYPE  /  RULES v0.1"
 	subtitle.modulate = Color("d1b36d")
 	root.add_child(subtitle)
+	var control_row := HBoxContainer.new()
+	root.add_child(control_row)
+	ai_mode = OptionButton.new()
+	for mode in ["Play Gulf · Alliance AI","Play Alliance · Gulf AI","Hotseat · both human","Watch · both AI"]: ai_mode.add_item(mode)
+	ai_mode.item_selected.connect(change_ai_mode)
+	control_row.add_child(ai_mode)
+	add_ai_pause(control_row)
 	ledger = Label.new()
 	ledger.add_theme_font_size_override("font_size",15)
 	root.add_child(ledger)
@@ -93,7 +106,7 @@ func _ready() -> void:
 	extra_picker = OptionButton.new()
 	for option in ["Build city","Build wall","Build port","Build institution","Build road","Transport army","Split army","Relocate influence","Fortify","Suppress","Destroy institution","Prepare siege","Assault","Sortie","Spend devotion","Observe","Offer at temple","Relocate seat","Propose / accept truce","Break truce","Other income player","Save campaign","Load campaign"]: extra_picker.add_item(option)
 	panel.add_child(extra_picker)
-	var extra_button := Button.new()
+	extra_button = Button.new()
 	extra_button.text = "Apply selected action"
 	extra_button.pressed.connect(extra_action)
 	panel.add_child(extra_button)
@@ -127,7 +140,7 @@ func draw_map() -> void:
 
 func select_province(id: String) -> void:
 	selected = id
-	if not move_origin.is_empty():
+	if not move_origin.is_empty() and human_campaign_turn():
 		match target_action:
 			"transport": notice.text = NavalRules.transport(game,move_origin,id)
 			"road": notice.text = CampaignRules.project(game,move_origin,"road",id)
@@ -141,24 +154,30 @@ func select_province(id: String) -> void:
 	refresh()
 
 func take_action(action: String) -> void:
+	if not human_campaign_turn(): return
 	notice.text = game.contest(selected) if action == "contest" else game.act(selected,action)
 	refresh()
 
 func next_phase() -> void:
+	if not human_campaign_turn(): return
 	game.advance()
 	move_origin = ""
 	notice.text = "Phase: %s. %s" % [Campaign.PHASES[game.phase], "Pass ends this faction’s participation." if game.phase in [1,2,3] else "Continue to resolve this phase."]
 	refresh()
 
 func restart() -> void:
+	var controllers := game.ai_players.duplicate()
 	game = Campaign.new()
+	game.ai_players = controllers
+	ai_elapsed = 0.0
 	move_origin = ""
 	battle_window.hide()
 	notice.text = "New campaign with provisional unit values."
 	refresh()
 
 func refresh() -> void:
-	title.text = "Round %d / 6 · %s · %s" % [game.round_number, Campaign.PHASES[game.phase], "Complete" if game.finished else game.factions[game.active].name]
+	if game.phase == 5 and game.battle == null and game.ai_players[game.active] and not game.ai_players[1-game.active]: game.active = 1-game.active
+	title.text = "Round %d / 6 · %s · %s" % [game.round_number, Campaign.PHASES[game.phase], "Complete" if game.finished else game.factions[game.active].name + (" · AI" if game.ai_players[game.active] else " · Human")]
 	ledger.text = ""
 	for i in range(2):
 		var f: Dictionary = game.factions[i]
@@ -179,18 +198,23 @@ func refresh() -> void:
 	details.text += army_text + "\nQueued recruits: %d" % game.orders.size()
 	for key in action_buttons:
 		var required := 1 if key == "buy" else (3 if key == "move" else 2)
-		action_buttons[key].disabled = game.finished or game.phase != required or game.battle != null
-	phase_button.disabled = game.finished or game.battle != null
+		action_buttons[key].disabled = not human_campaign_turn() or game.phase != required
+	phase_button.disabled = not human_campaign_turn()
+	extra_button.disabled = game.battle != null or (game.phase in [1,2,3] and game.ai_players[game.active])
+	var mode_index := 3 if game.ai_players == [true,true] else (0 if game.ai_players == [false,true] else (1 if game.ai_players == [true,false] else 2))
+	ai_mode.select(mode_index)
 	phase_button.text = "Pass %s turn" % Campaign.PHASES[game.phase] if game.phase in [1,2,3] else "Resolve %s → continue" % Campaign.PHASES[game.phase]
 	log_view.text = "\n".join(game.history)
 	map.queue_redraw()
 
 func buy_recruit() -> void:
+	if not human_campaign_turn(): return
 	var units := ["infantry","cavalry","artillery","bow","skirmisher","jaguar","eagle","crossbow","shot","ship","cube"]
 	notice.text = game.buy(selected,units[recruit_picker.selected])
 	refresh()
 
 func arm_move() -> void:
+	if not human_campaign_turn(): return
 	move_origin = selected
 	target_action = "move"
 	notice.text = "Choose an adjacent destination for the army at %s. Select another phase to cancel." % selected
@@ -226,12 +250,14 @@ func build_battle_window() -> void:
 	battle_status = Label.new()
 	battle_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel.add_child(battle_status)
+	add_ai_pause(panel)
 	var instructions := Label.new()
 	instructions.text = "Select your unit, then an empty cell.\nI = infantry · C = cavalry · A = artillery\n★ = general · arrow = facing\nTurn consumes this unit's movement.\nEnd half-round resolves shooting / melee.\nOpen terrain · automatic deployment / targets\nGroup: add units, then choose a destination."
 	panel.add_child(instructions)
 	for entry in [["Arrange / confirm deployment", "deploy"],["Begin shooting", "shoot"],["Use Scouts", "scouts"],["Use Discipline", "discipline"],["Toggle skirmisher / eagle flee", "flee"],["Rotate selected unit", "turn"],["Add selected to group", "group"],["Clear group", "clear_group"],["End half-round: shoot & fight", "end"],["Withdraw active side", "withdraw"]]:
 		var button := Button.new()
 		button.text = entry[0]
+		tactical_buttons.append(button)
 		button.pressed.connect(tactical_action.bind(entry[1]))
 		panel.add_child(button)
 	battle_log = RichTextLabel.new()
@@ -240,7 +266,7 @@ func build_battle_window() -> void:
 	panel.add_child(battle_log)
 
 func battle_cell_pressed(cell: Vector2i) -> void:
-	if game.battle == null: return
+	if game.battle == null or CampaignAI.controls_turn(game): return
 	var occupant := game.battle.at(cell)
 	if occupant >= 0 and game.battle.shooting_stage and game.battle.units[occupant].side != game.battle.active:
 		notice.text = game.battle.choose_shot(selected_unit,occupant)
@@ -255,7 +281,7 @@ func battle_cell_pressed(cell: Vector2i) -> void:
 	refresh_battle()
 
 func tactical_action(action: String) -> void:
-	if game.battle == null: return
+	if game.battle == null or CampaignAI.controls_turn(game): return
 	match action:
 		"deploy":
 			if game.battle.half_round == 0 and not game.battle.deployment_done and not game.battle.shooting_stage and not game.battle.units.any(func(u): return u.moved):
@@ -286,7 +312,9 @@ func refresh_battle() -> void:
 	var battle := game.battle
 	if battle == null: return
 	var player: int = game.battle_context.attacker if battle.active == 0 else 1-game.battle_context.attacker
-	battle_status.text = "%s\nBattle round %d / 12 · %d command points\n%s" % [game.factions[player].name,1+int(battle.half_round/2.0),battle.command,notice.text]
+	battle_status.text = "%s\nBattle round %d / 12 · %d command points\n%s" % [game.factions[player].name + (" · AI" if game.ai_players[player] else " · Human"),1+int(battle.half_round/2.0),battle.command,notice.text]
+	for button in tactical_buttons: button.disabled = CampaignAI.controls_turn(game)
+	for cell_button in battle_cells: cell_button.disabled = CampaignAI.controls_turn(game)
 	for y in range(12):
 		for x in range(12):
 			var index := battle.at(Vector2i(x,y))
@@ -307,6 +335,8 @@ func refresh_battle() -> void:
 
 func extra_action() -> void:
 	var action := extra_picker.get_item_text(extra_picker.selected)
+	if game.battle != null: return
+	if action not in ["Save campaign","Load campaign","Other income player"] and (not human_campaign_turn() or game.ai_players[game.active]): return
 	match action:
 		"Build city","Build wall","Build port","Build institution": notice.text = CampaignRules.project(game,selected,action.trim_prefix("Build "))
 		"Build road","Transport army","Relocate influence":
@@ -325,7 +355,7 @@ func extra_action() -> void:
 		"Propose / accept truce": notice.text = game.policy("truce",selected)
 		"Break truce": notice.text = game.policy("break",selected)
 		"Other income player":
-			if game.phase == 5: game.active = 1-game.active
+			if game.phase == 5 and not game.ai_players[1-game.active]: game.active = 1-game.active
 		"Save campaign": notice.text = game.save_campaign()
 		"Load campaign": notice.text = game.load_campaign()
 	if game.battle != null:
@@ -334,3 +364,51 @@ func extra_action() -> void:
 		refresh_battle()
 		battle_window.popup_centered()
 	refresh()
+
+func human_campaign_turn() -> bool:
+	return not game.finished and game.battle == null and (game.phase in [0,4,5] or not game.ai_players[game.active])
+
+func change_ai_mode(index: int) -> void:
+	game.ai_players = [[false,true],[true,false],[false,false],[true,true]][index].duplicate()
+	move_origin = ""
+	ai_elapsed = 0.0
+	if game.phase == 5 and game.ai_players[game.active] and not game.ai_players[1-game.active]: game.active = 1-game.active
+	refresh()
+	if game.battle != null: refresh_battle()
+
+func add_ai_pause(parent: Node) -> void:
+	var button := CheckButton.new()
+	button.text = "Pause AI"
+	button.toggled.connect(set_ai_paused)
+	parent.add_child(button)
+	ai_pause_buttons.append(button)
+
+func set_ai_paused(value: bool) -> void:
+	ai_paused = value
+	for button in ai_pause_buttons: button.set_pressed_no_signal(value)
+
+func _process(delta: float) -> void:
+	if ai_paused or game.finished: return
+	ai_elapsed += delta
+	if ai_elapsed < 0.35: return
+	ai_elapsed = 0.0
+	run_ai_step()
+
+func run_ai_step() -> bool:
+	if ai_paused: return false
+	var previous_battle := game.battle
+	var previous_side := -1 if previous_battle == null else previous_battle.active
+	if not CampaignAI.step(game): return false
+	move_origin = ""
+	if game.battle != previous_battle or game.battle != null and game.battle.active != previous_side:
+		selected_unit = -1
+		group_selection.clear()
+	if game.battle != null:
+		refresh_battle()
+		if not battle_window.visible: battle_window.popup_centered()
+	else: battle_window.hide()
+	if not game.history.is_empty(): notice.text = game.history.back()
+	# Income choices are shared; leave the visible controls with the human.
+	if game.phase == 5 and game.battle == null and game.ai_players[game.active] and not game.ai_players[1-game.active]: game.active = 1-game.active
+	refresh()
+	return true

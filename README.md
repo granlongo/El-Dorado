@@ -1,8 +1,16 @@
 # El Dorado — Godot campaign prototype
 
-Open `project.godot` in **Godot 4.6+** and press **F5**. No plugins or external assets are required. This is local hotseat play: players share the controls.
+Open `project.godot` in **Godot 4.6+** and press **F5**. No plugins or external assets are required. New games default to **human Gulf versus AI Triple Alliance**. The selector at the top also offers human Alliance versus AI Gulf, two-human hotseat play, and AI versus AI.
 
 The eight-province Gulf versus Triple Alliance scenario now includes construction, naval transport, sieges, religion, treaties, revolts, victory conditions and saving alongside its economy, recruitment, influence and tactical combat. **The full six-faction ruleset is still in progress.** See [the mechanics coverage table](docs/mechanics-status.md) for precise remaining work.
+
+## Simple AI opponent
+
+Choose your faction using the top selector. The AI automatically handles its purchases, influence actions, army moves and tactical turns, including independent militia when you attack a neutral province. It takes one decision every 0.35 seconds so you can follow play. **Pause AI** is available on both the campaign and battle screens; the mode selector can return the campaign to hotseat control. Human action buttons are locked during AI turns.
+
+In single-player modes you still resolve the shared **Maintenance**, **Deployment** and **Income** phases. The AI makes its own offering/observance choices when Income resolves. In **Watch · both AI**, shared phases also advance automatically. Controller choices survive restart and save/load. Older saves without controller settings load as hotseat games.
+
+The AI uses simple public-state heuristics: preserve gold for upkeep, recruit core infantry/ranged support, finish political integration, occupy weaker targets, hold bridgeheads, use transport where legal, and advance toward enemies in battle. It calls the same rule methods as human players and receives no resource bonuses or privileged dice. It is an introductory opponent, without deep planning, construction strategy or negotiated diplomacy. Only the two currently implemented factions are available.
 
 ## Campaign controls
 
@@ -46,6 +54,7 @@ The unchanged supplied rulebook is in `docs/rulebook-v0.1.txt`. The prototype do
 ## Development
 
 - `scripts/campaign.gd`: phase sequence, campaign actions, battle integration, persistence.
+- `scripts/campaign_ai.gd`: bounded campaign and tactical AI decisions.
 - `scripts/campaign_rules.gd`: construction, religion, unrest and victory.
 - `scripts/naval_rules.gd`: ship recruitment, deployment, transport and encounter model.
 - `scripts/logistics.gd`: supply, maintenance, manpower, deployment and garrison attrition.
@@ -59,9 +68,10 @@ godot --headless --path . --editor --import --quit
 godot --headless --path . --script tests/campaign_test.gd
 godot --headless --path . --script tests/extended_test.gd
 godot --headless --path . --script tests/ui_test.gd
+godot --headless --path . --script tests/ai_test.gd
 godot --headless --path . --quit-after 10
 ```
 
-In the cloud shell, use `./scripts/godot-cloud.sh` instead of `godot --path .`; the wrapper supplies writable data/config/cache folders outside the checkout. The suites currently cover 70 campaign/tactical checks, 39 extended checks and the interface smoke flow. They validate current behavior, not completeness or game balance.
+In the cloud shell, use `./scripts/godot-cloud.sh` instead of `godot --path .`; the wrapper supplies writable data/config/cache folders outside the checkout. The suites currently cover 70 campaign/tactical checks, 39 extended checks, 45 AI checks and the interface smoke flow. AI checks include seeded complete games, neutral-militia handoffs, resource limits, pause/control guards and backward-compatible save loading. They validate current behavior, not completeness or game balance.
 
 Use the existing checkout in each isolated task. The `.godot/` cache is ignored; `.uid` files are source metadata. Development and tests do not publish the cloud environment.

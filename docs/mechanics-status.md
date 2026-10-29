@@ -26,6 +26,7 @@ The playable scenario remains Gulf versus Triple Alliance, eight provinces and S
 | Religion | Temple/mission construction, protected cube, generation, offerings/prisoners, Alliance missed-offering penalty, peaceful observance/devotion | Inca patronage/festivals and other four factions |
 | Plague/unrest | Plague spread/progression and influence trimming; stability-based vulnerable-province revolts with withdrawal/losses | Pacification action and event table |
 | Victory | Two consecutive qualifying round ends, elimination, six-round scoring and population/gold tiebreaks | Full 12-round, 24-province victory conditions |
+| Simple AI | Either current faction can be automated; purchases, integration, military movement, tactical turns, income choices, pause, spectator mode, saved controller settings | Deep planning, construction/diplomacy strategy and the other four factions |
 | Persistence | Save/load outside tactical battles, RNG state preserved, structural validation, temporary-file replacement | Mid-battle save and schema migrations |
 | Full scenario | Rulebook preserved | Six factions, 24-province map, four sea zones; historical/art presentation |
 
