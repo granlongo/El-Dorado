@@ -197,6 +197,7 @@ func arm_move() -> void:
 
 func build_battle_window() -> void:
 	battle_window = Window.new()
+	battle_window.visible = false
 	battle_window.title = "El Dorado · tactical battle · provisional profiles"
 	battle_window.size = Vector2i(1040,730)
 	battle_window.unresizable = true
